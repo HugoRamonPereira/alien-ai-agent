@@ -46,7 +46,7 @@ const Sidebar = () => {
           isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="p-3 border-b border-gray-200">
+        <div className="p-3 px-6 border-b border-gray-200">
           <Button
             onClick={handleNewChat}
             className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm hover:shadow transition-all duration-200 cursor-pointer"
@@ -54,7 +54,7 @@ const Sidebar = () => {
             <PlusIcon className="mr-2 h-4 w-4" /> New Chat
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto space-y-2.5 p-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+        <div className="flex-1 overflow-y-auto space-y-2.5 p-4 px-6 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
           {chats?.map((chat) => (
             <ChatRow key={chat._id} chat={chat} onDelete={handleDeleteChat} />
           ))}
