@@ -1,4 +1,5 @@
-import { BotIcon } from "lucide-react";
+// import { BotIcon } from "lucide-react";
+import { WiAlien } from "react-icons/wi";
 
 const Dashboard = () => {
   return (
@@ -11,7 +12,8 @@ const Dashboard = () => {
         <div className="relative space-y-6 p-8 text-center">
           <div className="bg-white/60 backdrop-blur-sm shadow-sm ring-1 ring-gray-200/50 rounded-2xl p-6 space-y-4">
             <div className="bg-gradient-to-b from-gray-50 to-white rounded-xl p-4 inline-flex">
-              <BotIcon className="w-12 h-12 text-gray-600" />
+              {/* <BotIcon className="w-12 h-12 text-gray-600" /> */}
+              <WiAlien className="w-12 h-12 text-gray-600" />
             </div>
             <h2 className="text-2xl font-semibold bg-gradient-to-br from-gray-900 to-gray-600 bg-clip-text text-transparent">
               Welcome to the Alien AI Agent Chat

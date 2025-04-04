@@ -4,7 +4,11 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
-import { ChatRequestBody } from "@/types/types";
+import { ChatRequestBody, StreamMessageType } from "@/types/types";
+import { createSSEParser } from "@/lib/createSSEParser";
+import { getConvexClient } from "@/lib/convex";
+import { api } from "@/convex/_generated/api";
+import MessageBubble from "./MessageBubble";
 
 interface ChatInterfaceProps {
   chatId: Id<"chats">;
@@ -21,6 +25,47 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
     name: string;
     input: unknown;
   } | null>(null);
+
+  const formatToolOutput = (output: unknown): string => {
+    if (typeof output === "string") return output;
+    return JSON.stringify(output, null, 2);
+  };
+
+  const formatTerminalOutput = (
+    tool: string,
+    input: unknown,
+    output: unknown
+  ) => {
+    const terminalHtml = `<div class="bg-[#1e1e1e] text-white font-mono p-2 rounded-md my-2 overflow-x-auto whitespace-normal max-w-[600px]">
+      <div class="flex items-center gap-1.5 border-b border-gray-700 pb-1">
+        <span class"text-red-500">●</span>
+        <span class"text-yellow-500">●</span>
+        <span class"text-green-500">●</span>
+        <span class"text-gray-400 ml-1 text-sm">~/${tool}</span>
+      </div>
+      <div class="text-gray-400 mt-1">$ Input</div>
+      <pre class="text-yellow-400 mt-0.5 whitespace-pre-wrap overflow-x-auto">${formatToolOutput(input)}</pre>
+      <div class="text-gray-400 mt-2">$ Output</div>
+      <pre class="text-green-400 mt-0.5 whitespace-pre-wrap overflow-x-auto">${formatToolOutput(output)}</pre>
+    </div>`;
+
+    return `---START---\n${terminalHtml}\n---END---`;
+  };
+
+  const processStream = async (
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    onChunk: (chunk: string) => Promise<void>
+  ) => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await onChunk(new TextDecoder().decode(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  };
 
   // The variable below is supposed to take me to the bottom of the chat with the submission of a message to always see the latest message sent
   const messagesBottomRef = useRef<HTMLDivElement>(null);
@@ -76,7 +121,96 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
 
       if (!response.ok) throw new Error(await response.text());
       if (!response.body) throw new Error("No response body available");
+
       // Handle the stream
+      // Create SSE parser and stream reader
+      const parser = createSSEParser();
+      const reader = response.body.getReader();
+
+      // Process the stream chunks
+      await processStream(reader, async (chunk) => {
+        // Parse SSE messages from the chunk
+        const messages = parser.parse(chunk);
+
+        // Handle each message based on its type
+        for (const message of messages) {
+          switch (message.type) {
+            case StreamMessageType.Token:
+              // Handle streaming tokens (normal text response)
+              if ("token" in message) {
+                fullResponse += message.token;
+                setStreamedResponse(fullResponse);
+              }
+              break;
+
+            case StreamMessageType.ToolStart:
+              // Handle start of tool execution (e.g. API calls, file operations)
+              if ("tool" in message) {
+                setCurrentTool({
+                  name: message.tool,
+                  input: message.input,
+                });
+                fullResponse += formatTerminalOutput(
+                  message.tool,
+                  message.input,
+                  "Processing..."
+                );
+                setStreamedResponse(fullResponse);
+              }
+              break;
+
+            case StreamMessageType.ToolEnd:
+              // Handle completion of tool execution
+              if ("tool" in message && currentTool) {
+                // Replace the "processing..." message with actual output
+                const lastTerminalIndex = fullResponse.lastIndexOf(
+                  '<div class="bg-[#1e1e1e]"'
+                );
+                if (lastTerminalIndex !== -1) {
+                  fullResponse =
+                    fullResponse.substring(0, lastTerminalIndex) +
+                    formatTerminalOutput(
+                      message.tool,
+                      currentTool.input,
+                      message.output
+                    );
+                  setStreamedResponse(fullResponse);
+                }
+                setCurrentTool(null);
+              }
+              break;
+
+            case StreamMessageType.Error:
+              // Handle error messages from the stream
+              if ("error" in message) {
+                throw new Error(message.error);
+              }
+              break;
+
+            case StreamMessageType.Done:
+              // Handle completion of the entire response
+              const assistantMessage: Doc<"messages"> = {
+                _id: `temp_assistant_${Date.now()}`,
+                chatId,
+                content: fullResponse,
+                role: "assistant",
+                createdAt: Date.now(),
+              } as Doc<"messages">;
+
+              // Save the complete message to the database
+              const convex = getConvexClient();
+              await convex.mutation(api.messages.store, {
+                chatId,
+                content: fullResponse,
+                role: "assistant",
+              });
+
+              setMessages((prev) => [...prev, assistantMessage]);
+              setStreamedResponse("");
+              return;
+          }
+        }
+      });
     } catch (error) {
       // Handle any errors during streaming
       console.error("Error sending message:", error);
@@ -85,12 +219,11 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
         prev.filter((msg) => msg._id !== optimisticUserMessage._id)
       );
       setStreamedResponse(
-        "error"
-        // formatTerminalOutput(
-        //   "error",
-        //   "Failed to process message",
-        //   error instanceof Error ? error.message : "Unknonwn error"
-        // )
+        formatTerminalOutput(
+          "error",
+          "Failed to process message",
+          error instanceof Error ? error.message : "Unknonwn error"
+        )
       );
     }
   };
@@ -98,16 +231,41 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
   return (
     <main className="flex flex-col h-[calc(100vh-theme(spacing.16))]">
       {/* Messages */}
-      <section className="flex-1">
-        {/* Messages */}
-        <div>
-          {messages.map((message) => (
-            <div key={message._id}>{message.content}</div>
+      <section className="flex-1 overflow-y-auto bg-gray-50 p-2 md:p-0">
+        <div className="max-w-4xl mx-auto p-4 space-y-3">
+          {/* Messages */}
+          {messages.map((message: Doc<"messages">) => (
+            // <div key={message._id}>{message.content}</div>
+            <MessageBubble
+              key={message._id}
+              content={message.content}
+              isUser={message.role === "user"}
+            />
           ))}
+          {streamedResponse && <MessageBubble content={streamedResponse} />}
+
+          {/* Loading indicator */}
+          {isLoading && !streamedResponse && (
+            <div className="flex justify-start animate-in fade-in-0">
+              <div className="rounded-2xl px-4 py-3 bg-white text-gray-900 rounded-bl-none shadow-sm ring-1 ring-inset ring-gray-200">
+                <div className="flex items-center gap-1.5">
+                  {[0.3, 0.15, 0].map((delay, i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: `-${delay}s` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Last message */}
+          <div ref={messagesBottomRef} />
         </div>
-        {/* Last message */}
-        <div ref={messagesBottomRef} />
       </section>
+
       {/* Footer input */}
       <footer className="border-t border-gray-200 bg-white p-4">
         <form onSubmit={submitMessage} className="max-w-4xl mx-auto relative">
