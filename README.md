@@ -89,3 +89,5 @@ There was some config made and I had to install a package by wxflows
 5th step - Run the command: wxflows import curl: https://dummyjson.com/comments to make tool. This will create a folder called curl in the wxflows folder with a file called index.graphql. We also added Youtube Transcript wxflows import tool https://raw.githubusercontent.com/IBM/wxflows/refs/heads/main/tools/youtube_transcript.zip
 6th step - Once you are done with your tools we have to deploy the tools with the command: wxflows deploy. Still in the wxflows directory
 7th step - The command above will generate a WXFLOWS_ENDPOINT which will be the 1st of the 2 urls that appear once you have executed the deploy command above. And we need another env variable the WXFLOWS_APIKEY which we can get by running the command wxflows whoami --apikey
+
+<!-- Repo: https://github.com/sonnysangha/ai-agent-langchain-langgraph-convex-clerk-ibm-wxtools-nextjs15/ -->

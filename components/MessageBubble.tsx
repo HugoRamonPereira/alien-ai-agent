@@ -39,22 +39,31 @@ const MessageBubble = ({ content, isUser }: MessageBubbleProps) => {
         <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
           <div dangerouslySetInnerHTML={{ __html: formatMessage(content) }} />
         </div>
-
         <div
-          className={`absolute bottom-0 ${isUser ? "bg-white border-gray-100" : "bg-blue-600 border-white"} flex items-center justify-center shadow-sm`}
+          className={`absolute bottom-0 ${
+            isUser
+              ? "right-0 translate-x-1/2 translate-y-1/2"
+              : "left-0 -translate-x-1/2 translate-y-1/2"
+          }`}
         >
-          {isUser ? (
-            <Avatar className="w-7 h-7">
-              <AvatarImage src={user?.imageUrl} />
-              <AvatarFallback>
-                {user?.firstName?.charAt(0)}
-                {user?.lastName?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            // <BotIcon className="w-5 h-5 text-white" />
-            <WiAlien className="w-5 h-5 text-white" />
-          )}
+          <div
+            className={`w-9 h-9 rounded-full border-2 ${
+              isUser ? "bg-white border-gray-100" : "bg-blue-600 border-white"
+            } flex items-center justify-center shadow-sm`}
+          >
+            {isUser ? (
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={user?.imageUrl} />
+                <AvatarFallback>
+                  {user?.firstName?.charAt(0)}
+                  {user?.lastName?.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              // <BotIcon className="w-5 h-5 text-white" />
+              <WiAlien className="w-10 h-10 text-white" />
+            )}
+          </div>
         </div>
       </div>
     </div>

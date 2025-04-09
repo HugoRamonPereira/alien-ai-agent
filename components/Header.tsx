@@ -3,10 +3,11 @@ import { Button } from "./ui/button";
 import { UserButton } from "@clerk/nextjs";
 import { NavigationContext } from "@/lib/NavigationProvider";
 import { use } from "react";
+import { WiAlien } from "react-icons/wi";
+// import { useNavigation } from "@/lib/context/navigation";
 
 const Header = () => {
-  const { isMobileNavOpen, setIsMobileNavOpen, closeMobileNav } =
-    use(NavigationContext);
+  const { setIsMobileNavOpen } = use(NavigationContext);
 
   return (
     <div className="border-b border-gray-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50">
@@ -20,7 +21,10 @@ const Header = () => {
           >
             <HamburgerMenuIcon className="w-5 h-5" />
           </Button>
-          <div className="font-semibold">Chat with Alien AI Agent</div>
+          <div className="font-semibold flex items-center">
+            <WiAlien className="w-7 h-7 mr-1 pt-0.5" />
+            Chat with Alien AI Agent
+          </div>
         </div>
         <div className="flex items-center">
           <UserButton
