@@ -1,4 +1,3 @@
-import { NavigationContext } from "@/lib/NavigationProvider";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { use } from "react";
@@ -8,6 +7,8 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import ChatRow from "./ChatRow";
+import { NavigationContext } from "@/lib/NavigationProvider";
+// import { useNavigation } from "@/lib/context/navigation";
 
 const Sidebar = () => {
   const router = useRouter();

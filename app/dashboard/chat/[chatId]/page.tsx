@@ -1,31 +1,44 @@
 import ChatInterface from "@/components/ChatInterface";
-import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { api } from "@/convex/_generated/api";
 import { getConvexClient } from "@/lib/convex";
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 
 interface ChatPageProps {
-  params: Promise<{
+  params: {
     chatId: Id<"chats">;
-  }>;
+  };
 }
 
-const ChatPage = async ({ params }: ChatPageProps) => {
+export default async function ChatPage({ params }: ChatPageProps) {
   const { chatId } = await params;
 
+  // Get user authentication
   const { userId } = await auth();
 
-  // No user then send him/her to the landing page to authenticate
   if (!userId) {
     redirect("/");
   }
 
   try {
-    // Create a convex instance "helper function" based on the client we created in the lib folder to fetch chats and messages
+    // Get Convex client and fetch chat and messages
     const convex = getConvexClient();
 
-    // If the user has ID then fetch all messages that belong to him/her
+    // Check if chat exists & user is authorized to view it
+    const chat = await convex.query(api.chats.getChat, {
+      id: chatId,
+      userId,
+    });
+
+    if (!chat) {
+      console.log(
+        "⚠️ Chat not found or unauthorized, redirecting to dashboard"
+      );
+      redirect("/dashboard");
+    }
+
+    // Get messages
     const thresholdMessages = await convex.query(api.messages.list, { chatId });
 
     return (
@@ -34,9 +47,7 @@ const ChatPage = async ({ params }: ChatPageProps) => {
       </div>
     );
   } catch (error) {
-    console.error("Error loading the chat:", error);
+    console.error("🔥 Error loading chat:", error);
     redirect("/dashboard");
   }
-};
-
-export default ChatPage;
+}

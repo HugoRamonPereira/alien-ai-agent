@@ -1,14 +1,15 @@
 "use client";
 
-import { Doc, Id } from "@/convex/_generated/dataModel";
 import React, { useEffect, useRef, useState } from "react";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "./ui/button";
-import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { ChatRequestBody, StreamMessageType } from "@/types/types";
+import { ArrowRightIcon } from "@radix-ui/react-icons";
 import { createSSEParser } from "@/lib/createSSEParser";
 import { getConvexClient } from "@/lib/convex";
 import { api } from "@/convex/_generated/api";
 import MessageBubble from "./MessageBubble";
+import WelcomeMessage from "./WelcomeMessage";
 
 interface ChatInterfaceProps {
   chatId: Id<"chats">;
@@ -31,6 +32,27 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
     return JSON.stringify(output, null, 2);
   };
 
+  // const formatTerminalOutput = (
+  //   tool: string,
+  //   input: unknown,
+  //   output: unknown
+  // ) => {
+  //   const terminalHtml = `<div class="bg-[#1e1e1e] text-white font-mono p-2 rounded-md my-2 overflow-x-auto whitespace-normal max-w-[600px]">
+  //     <div class="flex items-center gap-1.5 border-b border-gray-700 pb-1">
+  //       <span class"text-red-500">●</span>
+  //       <span class"text-yellow-500">●</span>
+  //       <span class"text-green-500">●</span>
+  //       <span class"text-gray-400 ml-1 text-sm">~/${tool}</span>
+  //     </div>
+  //     <div class="text-gray-400 mt-1">$ Input</div>
+  //     <pre class="text-yellow-400 mt-0.5 whitespace-pre-wrap overflow-x-auto">${formatToolOutput(input)}</pre>
+  //     <div class="text-gray-400 mt-2">$ Output</div>
+  //     <pre class="text-green-400 mt-0.5 whitespace-pre-wrap overflow-x-auto">${formatToolOutput(output)}</pre>
+  //   </div>`;
+
+  //   return `---START---\n${terminalHtml}\n---END---`;
+  // };
+
   const formatTerminalOutput = (
     tool: string,
     input: unknown,
@@ -38,10 +60,10 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
   ) => {
     const terminalHtml = `<div class="bg-[#1e1e1e] text-white font-mono p-2 rounded-md my-2 overflow-x-auto whitespace-normal max-w-[600px]">
       <div class="flex items-center gap-1.5 border-b border-gray-700 pb-1">
-        <span class"text-red-500">●</span>
-        <span class"text-yellow-500">●</span>
-        <span class"text-green-500">●</span>
-        <span class"text-gray-400 ml-1 text-sm">~/${tool}</span>
+        <span class="text-red-500">●</span>
+        <span class="text-yellow-500">●</span>
+        <span class="text-green-500">●</span>
+        <span class="text-gray-400 ml-1 text-sm">~/${tool}</span>
       </div>
       <div class="text-gray-400 mt-1">$ Input</div>
       <pre class="text-yellow-400 mt-0.5 whitespace-pre-wrap overflow-x-auto">${formatToolOutput(input)}</pre>
@@ -127,6 +149,9 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
       const parser = createSSEParser();
       const reader = response.body.getReader();
 
+      // Track if we've received a Done message
+      let streamCompleted = false;
+
       // Process the stream chunks
       await processStream(reader, async (chunk) => {
         // Parse SSE messages from the chunk
@@ -207,10 +232,15 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
 
               setMessages((prev) => [...prev, assistantMessage]);
               setStreamedResponse("");
-              return;
+              streamCompleted = true;
+              break;
           }
         }
       });
+
+      if (!streamCompleted) {
+        throw new Error("Stream ended without completion message");
+      }
     } catch (error) {
       // Handle any errors during streaming
       console.error("Error sending message:", error);
@@ -225,6 +255,8 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
           error instanceof Error ? error.message : "Unknonwn error"
         )
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -234,6 +266,7 @@ const ChatInterface = ({ chatId, thresholdMessages }: ChatInterfaceProps) => {
       <section className="flex-1 overflow-y-auto bg-gray-50 p-2 md:p-0">
         <div className="max-w-4xl mx-auto p-4 space-y-3">
           {/* Messages */}
+          {messages?.length === 0 && <WelcomeMessage />}
           {messages.map((message: Doc<"messages">) => (
             // <div key={message._id}>{message.content}</div>
             <MessageBubble
